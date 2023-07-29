@@ -75,7 +75,19 @@ def plot_one_image(model=None, img_param=None, sr_weights_path=3, cv2window=Fals
                         
                         
                     gray_roi = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
-                    _, binary_roi = cv2.threshold(gray_roi, 180, 255, cv2.THRESH_BINARY)
+                    
+                    total_pixels = gray_roi.shape[0] * gray_roi.shape[1]
+                    below_threshold_pixels = np.sum(gray_roi < 160)
+                    percentage_below_threshold = (below_threshold_pixels / total_pixels) * 100
+                    
+                    below_threshold_mask = gray_roi < 160
+                    avg_distance2threshold = np.sum(160-gray_roi[below_threshold_mask])/total_pixels
+                                        
+                    if(percentage_below_threshold > 50):
+                        gray_roi = gray_roi + int(avg_distance2threshold)+25
+                        gray_roi = np.clip(gray_roi, 0, 255).astype(np.uint8)
+
+                    _, binary_roi = cv2.threshold(gray_roi, 160, 255, cv2.THRESH_BINARY)
                     plate_string = detect_plate_string(plate_img=binary_roi)
                     
                     
@@ -84,15 +96,12 @@ def plot_one_image(model=None, img_param=None, sr_weights_path=3, cv2window=Fals
                         
                         ax[0].imshow(roi)
                         ax[0].set_title('roi')
-                        ax[0].grid(False)
                         ax[1].imshow(gray_roi, cmap='gray')
                         ax[1].set_title('gray_roi')
-                        ax[1].grid(False)
                         ax[2].imshow(binary_roi, cmap='gray')
-                        ax[2].set_title('binary_roi')    
-                        ax[2].grid(False)
+                        ax[2].set_title('binary_roi')     
                                                             
-                        print(f'plate_string: {plate_string}')                    
+                    print(f'plate_string: {plate_string}')                    
                     
                     new_img = cv2.rectangle(new_img, (xmin_vehicle+xmin_plate, ymin_vehicle+ymin_plate), (xmin_vehicle+xmax_plate, ymin_vehicle+ymax_plate), cv2_plates_cfg['color'], cv2_plates_cfg['thickness'])
                     new_img = cv2.putText(new_img, f"plate {score_plate:.2f}", (xmin_vehicle+xmin_plate, ymin_vehicle+ymin_plate - 5), cv2_plates_cfg['fontFace'], cv2_plates_cfg['fontScale'], cv2_plates_cfg['color'], cv2_plates_cfg['thickness'], cv2_plates_cfg['lineType']) 

@@ -8,7 +8,7 @@ from modules.model import get_plateDetectorModel
 
 def load_model_for_inference(weights_dir=None, device=None):   
     model = get_plateDetectorModel()
-    model.load_state_dict(torch.load(weights_dir+"model.pt", map_location=torch.device(device)))
+    model.load_state_dict(torch.load(weights_dir+"detector.pt", map_location=torch.device(device)))
     model.eval()
     
     return model
@@ -60,23 +60,23 @@ def decode_prediction_vehicles(prediction=None, score_threshold = 0.3, nms_iou_t
         return (None, None, None)
     
     want_st = scores > score_threshold
-    boxes = boxes[want_st].cpu().detach().numpy()
-    labels = labels[want_st].cpu().detach().numpy()
-    scores = scores[want_st].cpu().detach().numpy()
+    boxes_t = boxes[want_st].cpu().detach().numpy()
+    labels_t = labels[want_st].cpu().detach().numpy()
+    scores_t = scores[want_st].cpu().detach().numpy()
     
     # want_nms = torchvision.ops.nms(boxes = boxes_t, scores = scores_t, iou_threshold = nms_iou_threshold)
     # boxes_nms = boxes_t[want_nms].cpu().detach().numpy()
     # labels_nms = labels_t[want_nms].cpu().detach().numpy()
     # scores_nms = scores_t[want_nms].cpu().detach().numpy()
             
-    # if(len(boxes_t)==0):
-    #     boxes = [boxes.cpu().detach().numpy()[0]]
-    #     labels = [labels.cpu().detach().numpy()[0]]
-    #     scores = [scores.cpu().detach().numpy()[0]]
-    # else:
-    #     boxes = boxes_t
-    #     labels = labels_t
-    #     scores = scores_t
+    if(len(boxes_t)==0):
+        boxes = [boxes.cpu().detach().numpy()[0]]
+        labels = [labels.cpu().detach().numpy()[0]]
+        scores = [scores.cpu().detach().numpy()[0]]
+    else:
+        boxes = boxes_t
+        labels = labels_t
+        scores = scores_t
         
     i=0
     while i < len(labels):
@@ -85,13 +85,13 @@ def decode_prediction_vehicles(prediction=None, score_threshold = 0.3, nms_iou_t
             boxes = np.delete(boxes, i, axis=0)
             labels = np.delete(labels, i, axis=0)
             scores = np.delete(scores, i, axis=0)
-        i+=1
+        else: i+=1
     
     return (boxes, labels, scores)
 
 
 # we know that in a cropped image of a vehicle must be only one plate, so we take the prediction with higher score
-def decode_prediction_plates(prediction=None, score_threshold = 0.75):
+def decode_prediction_plates(prediction=None, score_threshold = 0.7):
     boxes = prediction["boxes"]
     scores = prediction["scores"]
     labels = prediction["labels"]
@@ -100,23 +100,23 @@ def decode_prediction_plates(prediction=None, score_threshold = 0.75):
         return (None, None, None)
     
     want_st = scores > score_threshold
-    boxes = boxes[want_st].cpu().detach().numpy()
-    labels = labels[want_st].cpu().detach().numpy()
-    scores = scores[want_st].cpu().detach().numpy()
+    boxes_t = boxes[want_st].cpu().detach().numpy()
+    labels_t = labels[want_st].cpu().detach().numpy()
+    scores_t = scores[want_st].cpu().detach().numpy()
     
     # want_nms = torchvision.ops.nms(boxes = boxes_t, scores = scores_t, iou_threshold = nms_iou_threshold)
     # boxes_nms = boxes_t[want_nms].cpu().detach().numpy()
     # labels_nms = labels_t[want_nms].cpu().detach().numpy()
     # scores_nms = scores_t[want_nms].cpu().detach().numpy()
             
-    # if(len(boxes_t)==0):
-    #     boxes = [boxes.cpu().detach().numpy()[0]]
-    #     labels = [labels.cpu().detach().numpy()[0]]
-    #     scores = [scores.cpu().detach().numpy()[0]]
-    # else:
-    #     boxes = boxes_t
-    #     labels = labels_t
-    #     scores = scores_t
+    if(len(boxes_t)==0):
+        boxes = [boxes.cpu().detach().numpy()[0]]
+        labels = [labels.cpu().detach().numpy()[0]]
+        scores = [scores.cpu().detach().numpy()[0]]
+    else:
+        boxes = boxes_t
+        labels = labels_t
+        scores = scores_t
         
     i=0
     while i < len(labels):
@@ -125,7 +125,7 @@ def decode_prediction_plates(prediction=None, score_threshold = 0.75):
             boxes = np.delete(boxes, i, axis=0)
             labels = np.delete(labels, i, axis=0)
             scores = np.delete(scores, i, axis=0)
-        i+=1
+        else: i+=1
         
     return (boxes, labels, scores)
 
