@@ -10,21 +10,6 @@ def unbatch(batch, device):
 
 # Training stage of one batch
 def train_batch(batch, model, optimizer, device):
-    """
-    Uses back propagation to train a model.
-    Inputs
-        batch: tuple
-            Tuple containing a batch from the Dataloader.
-        model: torch model
-        optimizer: torch optimizer
-        device: str
-            Indicates which device (CPU/GPU) to use.
-    Returns
-        loss: float
-            Sum of the batch losses.
-        losses: dict
-            Dictionary containing the individual losses.
-    """
     model.train()
     X, y = unbatch(batch, device=device)    
 
@@ -40,21 +25,6 @@ def train_batch(batch, model, optimizer, device):
 
 # Validation stage of one batch
 def validate_batch(batch, model, optimizer, device):
-    """
-    Evaluates a model's loss value using validation data.
-    Inputs
-        batch: tuple
-            Tuple containing a batch from the Dataloader.
-        model: torch model
-        optimizer: torch optimizer
-        device: str
-            Indicates which device (CPU/GPU) to use.
-    Returns
-        loss: float
-            Sum of the batch losses.
-        losses: dict
-            Dictionary containing the individual losses.
-    """
     model.train()
     with torch.no_grad():
         X, y = unbatch(batch, device=device)  
@@ -113,7 +83,7 @@ def training_and_validation(model=None, optimizer=None, num_epochs=10, train_loa
         if(verbose>0): print(f"    > valid_epoch_loss = {valid_epoch_loss/idx}" )
 
         # SAVE MODEL
-        torch.save(model.state_dict(), weights_dir)
+        torch.save(model.state_dict(), weights_dir+'detector.pt')
 
     print("---------------------------------------------------------------------")    
     if(verbose>0): print("End training ...")

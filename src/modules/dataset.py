@@ -11,7 +11,7 @@ import torch
 import torchvision.transforms as transforms
 from torch.utils.data import Dataset, DataLoader
 
-size=(352,352)
+size=(600,600)
 
 # XML to CSV function to create dataset.csv file
 def xml2csv(main_dir=None, path_folder=None):
@@ -58,9 +58,7 @@ def get_transform(train):
     transform.append(transforms.Resize(size))
     
     if train == True:
-        transform.append(transforms.RandomRotation(degrees=(30)))
         transform.append(transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1))
-        transform.append(transforms.RandomHorizontalFlip())
         transform.append(transforms.RandomErasing())
         transform.append(transforms.RandomGrayscale())
 
@@ -107,26 +105,21 @@ class PlateDetectorDataset(Dataset):
 
 
 # Return splitted dataset
-# Test 20% of total dataset
-# Train 80% of 80% of total dataset
-# Valid 20% of 80% of total dataset
 def get_datasets(data_dir=None, csv_file=None):
-    train_ds = PlateDetectorDataset(data_dir=data_dir, csv_file=csv_file, transform=get_transform(train=False))
+    train_ds = PlateDetectorDataset(data_dir=data_dir, csv_file=csv_file, transform=get_transform(train=True))
     valid_ds = PlateDetectorDataset(data_dir=data_dir, csv_file=csv_file, transform=get_transform(train=False))
-    test_ds = PlateDetectorDataset(data_dir=data_dir, csv_file=csv_file, transform=get_transform(train=False))
 
     indices = torch.randperm(len(train_ds)).tolist()
-    
-    # Train dataset: 70% of the entire data
-    train_ds = torch.utils.data.Subset(train_ds, indices[:int(len(indices) * 0.7):])
+    train_indices = indices[:int(len(indices) * 0.8):]
+    valid_indices = indices[int(len(indices) * 0.8):]
+        
+    # Train dataset: 80% of the entire data
+    train_ds = torch.utils.data.Subset(train_ds, train_indices)
     
     # Validation dataset: 20% of the entire data
-    valid_ds = torch.utils.data.Subset(valid_ds, indices[int(len(indices) * 0.7):int(len(indices) * 0.9)])
-    
-    # Test dataset: 10% of the entire data
-    test_ds = torch.utils.data.Subset(test_ds, indices[int(len(indices) * 0.9):])
+    valid_ds = torch.utils.data.Subset(valid_ds, valid_indices)
 
-    return train_ds, valid_ds, test_ds
+    return train_ds, valid_ds
 
 
 def dataset_stats(dataset=None):
@@ -164,13 +157,12 @@ def plot_image_from_dataset(dataset=None, idx=None):
 
 
 # Return dataloader
-def get_dataloaders(train_ds=None, valid_ds=None, test_ds=None, batch_size=8):
+def get_dataloaders(train_ds=None, valid_ds=None, batch_size=8):
     
     train_dl = DataLoader(train_ds, batch_size=batch_size, shuffle=True, collate_fn=lambda batch: list(zip(*batch)))
     valid_dl = DataLoader(valid_ds, batch_size=batch_size, shuffle=False, collate_fn=lambda batch: list(zip(*batch)))
-    test_dl = DataLoader(test_ds, batch_size=batch_size, shuffle=False, collate_fn=lambda batch: list(zip(*batch)))
     
-    return (train_dl, valid_dl, test_dl)
+    return (train_dl, valid_dl)
 
 
 
