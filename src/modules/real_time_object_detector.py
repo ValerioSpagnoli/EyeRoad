@@ -41,19 +41,13 @@ def plot_one_image(model=None, img_param=None, sr_weights_path=3, cv2window=Fals
     boxes_vehicles, _, scores_vehicles = decode_prediction_vehicles(prediction=predictions_vehicles)
         
     new_img = img.copy()
-    
-    xmin_detection_area_plates = 30
-    ymin_detection_area_plates = int(img.shape[0]/10)*6
-    xmax_detection_area_plates = int(img.shape[1])-30
-    ymax_detection_area_plates = int(img.shape[0])-30
-    
+        
     xmin_detection_area_vehicles = 30
     ymin_detection_area_vehicles = int(img.shape[0]/10)*4
     xmax_detection_area_vehicles = int(img.shape[1])-30
     ymax_detection_area_vehicles = int(img.shape[0])-30
         
     if not cv2window and cv2imshow: cv2.rectangle(new_img, (xmin_detection_area_vehicles, ymin_detection_area_vehicles), (xmax_detection_area_vehicles, ymax_detection_area_vehicles), (0,150,150), 2)
-    if not cv2window and cv2imshow: cv2.rectangle(new_img, (xmin_detection_area_plates, ymin_detection_area_plates), (xmax_detection_area_plates, ymax_detection_area_plates), (0,150,150), 2)
     
     if cv2imshow: cv2.imshow('Video', new_img)
         
@@ -71,6 +65,7 @@ def plot_one_image(model=None, img_param=None, sr_weights_path=3, cv2window=Fals
             
             new_img = cv2.rectangle(new_img, (xmin_vehicle, ymin_vehicle), (xmax_vehicle, ymax_vehicle), cv2_vehicles_cfg['color'], cv2_vehicles_cfg['thickness'])
             new_img = cv2.putText(new_img, f"vehicle {score_vehicle:.2f}", (xmin_vehicle, ymin_vehicle - 5), cv2_vehicles_cfg['fontFace'], cv2_vehicles_cfg['fontScale'], cv2_vehicles_cfg['color'], cv2_vehicles_cfg['thickness'], cv2_vehicles_cfg['lineType'])
+    
             
             if cv2imshow: cv2.imshow('Video', new_img)
                 
@@ -79,14 +74,9 @@ def plot_one_image(model=None, img_param=None, sr_weights_path=3, cv2window=Fals
             xmin_box_plate_area = xmin_vehicle + int((xmax_vehicle - xmin_vehicle)/4)
             xmax_box_plate_area = xmin_vehicle + int(((xmax_vehicle - xmin_vehicle)/4) * 3)
             ymin_box_plate_area = ymin_vehicle + int(((ymax_vehicle - ymin_vehicle)/10) * 4) 
-            ymax_box_plate_area = ymin_vehicle + int(((ymax_vehicle - ymin_vehicle)/10) * 9)
+            ymax_box_plate_area = ymax_vehicle # ymin_vehicle + int(((ymax_vehicle - ymin_vehicle)/10) * 9)
             
-            if(not cv2window and cv2imshow and
-               (ymin_box_plate_area < ymin_detection_area_plates or ymax_box_plate_area > ymax_detection_area_plates or 
-               xmin_box_plate_area < xmin_detection_area_plates or xmax_box_plate_area > xmax_detection_area_plates)):
-                continue
-
-            cv2.rectangle(box_plate_area, (xmin_box_plate_area, ymin_box_plate_area), (xmax_box_plate_area, ymax_box_plate_area), (225,255,0), -1)
+            cv2.rectangle(box_plate_area, (xmin_box_plate_area, ymin_box_plate_area), (xmax_box_plate_area, ymax_box_plate_area), (0,255,225), -1)
             cv2.addWeighted(box_plate_area, 0.2, new_img, 1 - 0.2, 0, new_img)
             
             #cv2.imwrite(f'{i}.jpeg', img[ymin_vehicle:ymax_vehicle, xmin_vehicle:xmax_vehicle])
@@ -94,7 +84,7 @@ def plot_one_image(model=None, img_param=None, sr_weights_path=3, cv2window=Fals
             if plt_plot: 
                 ax[0].imshow(cv2.cvtColor(img[ymin_vehicle:ymax_vehicle, xmin_vehicle:xmax_vehicle], cv2.COLOR_BGR2RGB))
                 ax[0].set_title('img')     
-                                            
+                                   
             # crop the image on detected vehicle
             vehicle_image = tensor_img.squeeze(dim=0)[:, ymin_vehicle:ymax_vehicle, xmin_vehicle:xmax_vehicle].unsqueeze(dim=0)  
                 
@@ -164,6 +154,16 @@ def plot_one_image(model=None, img_param=None, sr_weights_path=3, cv2window=Fals
                     cv2.rectangle(new_img, (xmin_vehicle+xmin_plate, ymin_vehicle+ymin_plate), (xmin_vehicle+xmax_plate, ymin_vehicle+ymax_plate), cv2_plates_cfg['color'], cv2_plates_cfg['thickness'])
                     cv2.putText(new_img, f"plate {score_plate:.2f}", (xmin_vehicle+xmin_plate, ymin_vehicle+ymin_plate - 5), cv2_plates_cfg['fontFace'], cv2_plates_cfg['fontScale'], cv2_plates_cfg['color'], cv2_plates_cfg['thickness'], cv2_plates_cfg['lineType']) 
                     cv2.putText(new_img, f"{plate_string}", (xmin_vehicle+xmin_plate, ymin_vehicle+ymax_plate + 30), cv2_plates_cfg['fontFace'], cv2_plates_cfg['fontScale'], cv2_plates_cfg['color'], cv2_plates_cfg['thickness'], cv2_plates_cfg['lineType'])    
+                    
+                    #id = int(binary_roi.sum()/(binary_roi.shape[0]*binary_roi.shape[1]))
+                    if(len(plate_string)>3): id_string = plate_string[len(plate_string)-3:]
+                    else: id_string = plate_string
+                        
+                    id = string2id(id_string)
+                    print(f'id_string: {id_string}, id: {id}')
+                    new_img = cv2.putText(new_img, f"id: {id}", (xmin_vehicle, ymax_vehicle + 30), cv2_vehicles_cfg['fontFace'], cv2_vehicles_cfg['fontScale'], cv2_vehicles_cfg['color'], cv2_vehicles_cfg['thickness'], cv2_vehicles_cfg['lineType'])
+                             
+                        
                         
             if cv2imshow: cv2.imshow('Video', new_img)
     
@@ -204,7 +204,21 @@ def real_time_object_detector(model=None, video_path=None, sr_weights_path=None,
         new_frame = plot_one_image(model=model, img_param=frame, sr_weights_path=sr_weights_path, cv2window=False, cv2imshow=True, plt_plot=False, cv2_vehicles_cfg=cv2_vehicles_cfg, cv2_plates_cfg=cv2_plates_cfg)    
               
         if new_frame_folder is not None:   
-            cv2.imwrite(new_frame_folder + f'new_frame_{n}.jpeg', new_frame)
+            new_frame_counter = '0000000000'
+            if n<10: new_frame_counter = f'000000000{n}'
+            elif n>=10 and n<100: new_frame_counter = f'00000000{n}'    
+            elif n>=100 and n<1000: new_frame_counter = f'0000000{n}'
+            elif n>=1000 and n<10000: new_frame_counter = f'000000{n}'
+            elif n>=10000 and n<100000: new_frame_counter = f'00000{n}'
+            elif n>=100000 and n<1000000: new_frame_counter = f'0000{n}'
+            elif n>=1000000 and n<10000000: new_frame_counter = f'000{n}'
+            elif n>=10000000 and n<100000000: new_frame_counter = f'00{n}'
+            elif n>=100000000 and n<100000000: new_frame_counter = f'0{n}'
+            elif n>=1000000000 and n<1000000000: new_frame_counter = f'{n}'
+            else: 
+                print('Error: frame number > 1000000000')
+                break
+            cv2.imwrite(new_frame_folder + f'{new_frame_counter}.jpeg', new_frame)
             n+=1
         
         k = cv2.waitKey(500)
@@ -273,7 +287,18 @@ def create_folder_if_not_exists(folder_path=None):
         while True:
             if choice.lower() == 'y':
                 return True
-            elif choice.lower == 'n': 
+            elif choice.lower() == 'n': 
                 return False
             else:
                 choice = input('Do you want save the new frame into it? (it not, please change the new_path_folder parameter) [y/n] ')
+                
+                
+def string2id(string):
+    total_sum = 0
+    for char in string:
+        total_sum += ord(char)
+    return total_sum
+
+    
+        
+        
