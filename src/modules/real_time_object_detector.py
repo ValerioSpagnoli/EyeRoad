@@ -194,7 +194,7 @@ def plot_one_image(model=None, img_param=None, sr_weights_path=3, tracker=None, 
 
 
 # VIDEO PROCESSING
-def real_time_object_detector(model=None, video_path=None, sr_weights_path=None, velocity_cfg=None, cv2_vehicles_cfg=None, cv2_plates_cfg=None, new_frame_folder=None):
+def real_time_object_detector(model=None, video_path=None, sr_weights_path=None, velocity_cfg=None, cv2_vehicles_cfg=None, cv2_plates_cfg=None, new_frame_folder=None, frames_to_skip=-1):
         
     cap = cv2.VideoCapture(video_path)
     cv2.namedWindow('Video',cv2.WINDOW_KEEPRATIO)
@@ -219,7 +219,7 @@ def real_time_object_detector(model=None, video_path=None, sr_weights_path=None,
     
     while True:
         ret, frame = cap.read()
-        if int(cap.get(cv2.CAP_PROP_POS_FRAMES))<1000: continue
+        if int(cap.get(cv2.CAP_PROP_POS_FRAMES))<frames_to_skip: continue
         
         if ret == False:
             print('Error: Unable to read video.')
