@@ -4,16 +4,16 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+from modules.sort import Sort
 
 from modules.inference import decode_prediction_vehicles, decode_prediction_plates
 from modules.detect_plate_string import detect_plate_string
 from utils.frames2video import frames2video
 
 # Plot one image prediction
-def plot_one_image(model=None, img_param=None, sr_weights_path=3, cv2window=False, cv2imshow=False, plt_plot=False, cv2_vehicles_cfg=None, cv2_plates_cfg=None):
-    
-    # dictionary of detections in the current images (will be returned)
-    detections={} 
+def plot_one_image(model=None, img_param=None, sr_weights_path=3, tracker=None, cv2window=False, cv2imshow=False, plt_plot=False, cv2_vehicles_cfg=None, cv2_plates_cfg=None):
+            
+    detections=[]        
             
     # if configurations of plot are not passed as paramenters, set them
     if cv2_vehicles_cfg is None:
@@ -57,9 +57,7 @@ def plot_one_image(model=None, img_param=None, sr_weights_path=3, cv2window=Fals
     # plot that area on new_img    
     if not cv2window and cv2imshow: cv2.rectangle(new_img, (xmin_detection_area_vehicles, ymin_detection_area_vehicles), (xmax_detection_area_vehicles, ymax_detection_area_vehicles), (0,150,150), 2)
     
-    # show the image
-    if cv2imshow: cv2.imshow('Video', new_img)
-        
+            
     # if there are detections of vehicles
     if boxes_vehicles is not None: 
         # for each detection   
@@ -71,15 +69,17 @@ def plot_one_image(model=None, img_param=None, sr_weights_path=3, cv2window=Fals
             xmin_vehicle, xmax_vehicle = (box_vehicle[0]).astype(int), (box_vehicle[2]).astype(int)
             ymin_vehicle, ymax_vehicle = (box_vehicle[1]).astype(int), (box_vehicle[3]).astype(int)
             
+            
             # if the detection is outside of detection_area_vehicles, ignore them
             if(not cv2window and cv2imshow and ymin_vehicle < ymin_detection_area_vehicles): continue
             
+            detections.append([xmin_vehicle, ymin_vehicle, xmax_vehicle, ymax_vehicle, score_vehicle])
+                            
             # plot the detection on new_img
             cv2.rectangle(new_img, (xmin_vehicle, ymin_vehicle), (xmax_vehicle, ymax_vehicle), cv2_vehicles_cfg['color'], cv2_vehicles_cfg['thickness'])
             cv2.putText(new_img, f"vehicle {score_vehicle:.2f}", (xmin_vehicle, ymin_vehicle - 5), cv2_vehicles_cfg['fontFace'], cv2_vehicles_cfg['fontScale'], cv2_vehicles_cfg['color'], cv2_vehicles_cfg['thickness'], cv2_vehicles_cfg['lineType'])
 
             # show the img
-            if cv2imshow: cv2.imshow('Video', new_img)
             if plt_plot: 
                 ax[0].imshow(cv2.cvtColor(img[ymin_vehicle:ymax_vehicle, xmin_vehicle:xmax_vehicle], cv2.COLOR_BGR2RGB))
                 ax[0].set_title('img')   
@@ -174,29 +174,33 @@ def plot_one_image(model=None, img_param=None, sr_weights_path=3, cv2window=Fals
                     cv2.rectangle(new_img, (xmin_vehicle+xmin_plate, ymin_vehicle+ymin_plate), (xmin_vehicle+xmax_plate, ymin_vehicle+ymax_plate), cv2_plates_cfg['color'], cv2_plates_cfg['thickness'])
                     cv2.putText(new_img, f"plate {score_plate:.2f}", (xmin_vehicle+xmin_plate, ymin_vehicle+ymin_plate - 5), cv2_plates_cfg['fontFace'], cv2_plates_cfg['fontScale'], cv2_plates_cfg['color'], cv2_plates_cfg['thickness'], cv2_plates_cfg['lineType']) 
                     cv2.putText(new_img, f"{plate_string}", (xmin_vehicle+xmin_plate, ymin_vehicle+ymax_plate + 30), cv2_plates_cfg['fontFace'], cv2_plates_cfg['fontScale'], cv2_plates_cfg['color'], cv2_plates_cfg['thickness'], cv2_plates_cfg['lineType'])    
+       
+            
+    if tracker is not None and len(detections)>0:
+        tracks = tracker.update(np.array(detections))
+        for i in range(len(tracks)):
+            detection, track = detections[i], tracks[i]
+            ymin, xmax, id = int(detection[1]), int(detection[2]), int(track[4])
+            if id < 10: id = f'0{id}'
+            cv2.putText(new_img, f'id: {id}', (xmax-70, ymin-5), cv2_vehicles_cfg['fontFace'], cv2_vehicles_cfg['fontScale'], cv2_vehicles_cfg['color'], cv2_vehicles_cfg['thickness'], cv2_vehicles_cfg['lineType'])
                     
-                    # compute the vehicle id, based on the plate string
-                    id = platestring2id(plate_string)
-                    new_img = cv2.putText(new_img, f"id: {id}", (xmin_vehicle, ymax_vehicle + 30), cv2_vehicles_cfg['fontFace'], cv2_vehicles_cfg['fontScale'], cv2_vehicles_cfg['color'], cv2_vehicles_cfg['thickness'], cv2_vehicles_cfg['lineType'])
-                    
-                    # record the detection
-                    detections[f'{id}'] = [xmin_vehicle, ymin_vehicle, xmax_vehicle, ymax_vehicle]
-                                            
-            if cv2imshow: cv2.imshow('Video', new_img)
-    
-    
+            
+    if cv2imshow: cv2.imshow('Video', new_img)
+                                                                    
     if cv2window: 
         while(1):
             if checkEsc(waiting_time=500): break
         cv2.destroyAllWindows()
             
-    return (new_img, detections)
+    return new_img
     
 
 def real_time_object_detector(model=None, video_path=None, sr_weights_path=None, cv2_vehicles_cfg=None, cv2_plates_cfg=None, new_frame_folder=None):
         
     cap = cv2.VideoCapture(video_path)
     cv2.namedWindow('Video',cv2.WINDOW_KEEPRATIO)
+    
+    tracker = Sort()
     
     if new_frame_folder is not None: 
         if(not create_folder_if_not_exists(folder_path=new_frame_folder)):
@@ -214,7 +218,7 @@ def real_time_object_detector(model=None, video_path=None, sr_weights_path=None,
             print('Error: Unable to read video.')
             break
               
-        new_frame, detections = plot_one_image(model=model, img_param=frame, sr_weights_path=sr_weights_path, cv2window=False, cv2imshow=True, plt_plot=False, cv2_vehicles_cfg=cv2_vehicles_cfg, cv2_plates_cfg=cv2_plates_cfg)     
+        new_frame = plot_one_image(model=model, img_param=frame, sr_weights_path=sr_weights_path, tracker=tracker, cv2window=False, cv2imshow=True, plt_plot=False, cv2_vehicles_cfg=cv2_vehicles_cfg, cv2_plates_cfg=cv2_plates_cfg)     
               
         if new_frame_folder is not None:   
             new_frame_name = compute_frame_name(n)
@@ -225,7 +229,6 @@ def real_time_object_detector(model=None, video_path=None, sr_weights_path=None,
             n+=1
         
         if checkEsc(waiting_time=500): break
-
 
     if new_frame_folder is not None:
         print('Creating new video ...')
@@ -274,15 +277,6 @@ def compute_plate_area_percentage(plate, vehicle):
     area_percentage = (plate_area/vehicle_area)*100
     
     return area_percentage
-
-
-def platestring2id(plate_string):
-    if(len(plate_string)>3): id_string = plate_string[len(plate_string)-3:]
-    else: id_string = plate_string
-    total_sum = 0
-    for char in id_string:
-        total_sum += ord(char)
-    return total_sum
 
 
 def create_folder_if_not_exists(folder_path=None):
