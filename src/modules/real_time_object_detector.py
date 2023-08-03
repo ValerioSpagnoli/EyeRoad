@@ -10,7 +10,8 @@ from modules.inference import decode_prediction_vehicles, decode_prediction_plat
 from modules.detect_plate_string import detect_plate_string
 from utils.frames2video import frames2video
 
-# Plot one image prediction
+
+# IMAGE PROCESSING
 def plot_one_image(model=None, img_param=None, sr_weights_path=3, tracker=None, cv2window=False, cv2imshow=False, plt_plot=False, cv2_vehicles_cfg=None, cv2_plates_cfg=None):
             
     detections=[]        
@@ -89,7 +90,7 @@ def plot_one_image(model=None, img_param=None, sr_weights_path=3, tracker=None, 
             xmin_box_plate_area = xmin_vehicle + int((xmax_vehicle - xmin_vehicle)/4)
             xmax_box_plate_area = xmin_vehicle + int(((xmax_vehicle - xmin_vehicle)/4) * 3)
             ymin_box_plate_area = ymin_vehicle + int(((ymax_vehicle - ymin_vehicle)/10) * 4) 
-            ymax_box_plate_area = ymax_vehicle # ymin_vehicle + int(((ymax_vehicle - ymin_vehicle)/10) * 9)
+            ymax_box_plate_area = ymax_vehicle
             
             # plot that area
             cv2.rectangle(box_plate_area, (xmin_box_plate_area, ymin_box_plate_area), (xmax_box_plate_area, ymax_box_plate_area), (0,255,225), -1)
@@ -102,88 +103,83 @@ def plot_one_image(model=None, img_param=None, sr_weights_path=3, tracker=None, 
             predictions_plates = model(vehicle_image)[0]
                 
             # decode predictions of plates
-            boxes_plates, _, scores_plates = decode_prediction_plates(prediction=predictions_plates)
+            box_plate, _, score_plate = decode_prediction_plates(prediction=predictions_plates)
             
             # if there are detections of plates
-            if boxes_plates is not None:
-                # for each detection
-                for j in range(len(boxes_plates)):
-                    box_plate = boxes_plates[j]
-                    score_plate = scores_plates[j]
-                                
-                    # takes the coordinates of the bounding box of the vehicle detection
-                    xmin_plate, xmax_plate = (box_plate[0]).astype(int), (box_plate[2]).astype(int)
-                    ymin_plate, ymax_plate = (box_plate[1]).astype(int), (box_plate[3]).astype(int)
-                    
-                    # compute the overlap percentage between the detection of the plate and the box_plate_area. It should be at last of 80%
-                    overlap_percentage = compute_overlap_percentage((xmin_vehicle+xmin_plate, ymin_vehicle+ymin_plate, xmin_vehicle+xmax_plate, ymin_vehicle+ymax_plate), 
-                                                                    (xmin_box_plate_area, ymin_box_plate_area, xmax_box_plate_area, ymax_box_plate_area))
-                    
-                    # compute the area percentage of plate box with reference the vehicle box. It should be between 2% and 4%
-                    area_percentage = compute_plate_area_percentage((xmin_plate, ymin_plate, xmax_plate, ymax_plate), 
-                                                                    (xmin_vehicle, ymin_vehicle, xmax_vehicle, ymax_vehicle))
-                    
-                    if(overlap_percentage < 80 and (area_percentage < 2.0 or area_percentage > 4.0)): continue
-                    
-                    
-                    # crop the region of interest (roi), i.e. the plate
-                    roi = img[ymin_vehicle+ymin_plate:ymin_vehicle+ymax_plate, xmin_vehicle+xmin_plate:xmin_vehicle+xmax_plate]
-                    
-                    # if the super resolution weights are passed ar parameter, perform the super resolution.
-                    if sr_weights_path is not None:
-                        sr = cv2.dnn_superres.DnnSuperResImpl_create()
-                        sr.readModel(sr_weights_path)
-                        sr.setModel("edsr",int(sr_weights_path.split('x')[1].split('.')[0]))
-                        roi = sr.upsample(roi)
-                    
-                    # compute the gray image of the super resoluted roi
-                    gray_roi = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
-                    
-                    threshold = 160
-                    
-                    # compute how much pixels are under the threshold used to transfrom the gray image to a binary (b/w) image
-                    below_threshold_pixels = np.sum(gray_roi < threshold)
-                    percentage_below_threshold = (below_threshold_pixels / (gray_roi.shape[0]*gray_roi.shape[1])) * 100
-                    
-                    # if the pixels below the threshold are at least 50%      
-                    if(percentage_below_threshold > 50):
-                        # compute the average distance of pixels below the threshold, from the threshold
-                        below_threshold_mask = gray_roi < threshold
-                        avg_distance2threshold = np.sum(threshold-gray_roi[below_threshold_mask])/(gray_roi.shape[0]*gray_roi.shape[1])
+            if box_plate is not None:
+                            
+                # takes the coordinates of the bounding box of the vehicle detection
+                xmin_plate, xmax_plate = (box_plate[0]).astype(int), (box_plate[2]).astype(int)
+                ymin_plate, ymax_plate = (box_plate[1]).astype(int), (box_plate[3]).astype(int)
+                
+                # compute the overlap percentage between the detection of the plate and the box_plate_area. It should be at last of 80%
+                overlap_percentage = compute_overlap_percentage((xmin_vehicle+xmin_plate, ymin_vehicle+ymin_plate, xmin_vehicle+xmax_plate, ymin_vehicle+ymax_plate), 
+                                                                (xmin_box_plate_area, ymin_box_plate_area, xmax_box_plate_area, ymax_box_plate_area))
+                
+                # compute the area percentage of plate box with reference the vehicle box. It should be between 2% and 4%
+                area_percentage = compute_plate_area_percentage((xmin_plate, ymin_plate, xmax_plate, ymax_plate), 
+                                                                (xmin_vehicle, ymin_vehicle, xmax_vehicle, ymax_vehicle))
                         
-                        # add to the gray image of roi the average distance to the threshold, plus 25. Then clip the gray roi
-                        gray_roi = gray_roi + int(avg_distance2threshold)+25
-                        gray_roi = np.clip(gray_roi, 0, 255).astype(np.uint8)
+                if(overlap_percentage < 80 or (area_percentage < 2.0 or area_percentage > 4.0)): continue
+                
+                # crop the region of interest (roi), i.e. the plate
+                roi = img[ymin_vehicle+ymin_plate:ymin_vehicle+ymax_plate, xmin_vehicle+xmin_plate:xmin_vehicle+xmax_plate]
+                
+                # if the super resolution weights are passed ar parameter, perform the super resolution.
+                if sr_weights_path is not None:
+                    sr = cv2.dnn_superres.DnnSuperResImpl_create()
+                    sr.readModel(sr_weights_path)
+                    sr.setModel("edsr",int(sr_weights_path.split('x')[1].split('.')[0]))
+                    roi = sr.upsample(roi)
+                
+                # compute the gray image of the super resoluted roi
+                gray_roi = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+                
+                threshold = 160
+                
+                # compute how much pixels are under the threshold used to transfrom the gray image to a binary (b/w) image
+                below_threshold_pixels = np.sum(gray_roi < threshold)
+                percentage_below_threshold = (below_threshold_pixels / (gray_roi.shape[0]*gray_roi.shape[1])) * 100
+                
+                # if the pixels below the threshold are at least 50%      
+                if(percentage_below_threshold > 50):
+                    # compute the average distance of pixels below the threshold, from the threshold
+                    below_threshold_mask = gray_roi < threshold
+                    avg_distance2threshold = np.sum(threshold-gray_roi[below_threshold_mask])/(gray_roi.shape[0]*gray_roi.shape[1])
+                    
+                    # add to the gray image of roi the average distance to the threshold, plus 25. Then clip the gray roi
+                    gray_roi = gray_roi + int(avg_distance2threshold)+25
+                    gray_roi = np.clip(gray_roi, 0, 255).astype(np.uint8)
 
-                    # compute the binary roi
-                    _, binary_roi = cv2.threshold(gray_roi, threshold, 255, cv2.THRESH_BINARY)
-                    
-                    # compute the plate string
-                    plate_string = detect_plate_string(plate_img=binary_roi)
-                    
-                    # plot the plate 
-                    if plt_plot:                   
-                        ax[1].imshow(cv2.cvtColor(roi, cv2.COLOR_BGR2RGB))
-                        ax[1].set_title('roi')
-                        ax[2].imshow(gray_roi, cmap='gray')
-                        ax[2].set_title('gray_roi')
-                        ax[3].imshow(binary_roi, cmap='gray')
-                        ax[3].set_title('binary_roi')     
-                                                            
-                    # add plots to new_img
-                    cv2.rectangle(new_img, (xmin_vehicle+xmin_plate, ymin_vehicle+ymin_plate), (xmin_vehicle+xmax_plate, ymin_vehicle+ymax_plate), cv2_plates_cfg['color'], cv2_plates_cfg['thickness'])
-                    cv2.putText(new_img, f"plate {score_plate:.2f}", (xmin_vehicle+xmin_plate, ymin_vehicle+ymin_plate - 5), cv2_plates_cfg['fontFace'], cv2_plates_cfg['fontScale'], cv2_plates_cfg['color'], cv2_plates_cfg['thickness'], cv2_plates_cfg['lineType']) 
-                    cv2.putText(new_img, f"{plate_string}", (xmin_vehicle+xmin_plate, ymin_vehicle+ymax_plate + 30), cv2_plates_cfg['fontFace'], cv2_plates_cfg['fontScale'], cv2_plates_cfg['color'], cv2_plates_cfg['thickness'], cv2_plates_cfg['lineType'])    
-       
-            
+                # compute the binary roi
+                _, binary_roi = cv2.threshold(gray_roi, threshold, 255, cv2.THRESH_BINARY)
+                
+                # compute the plate string
+                plate_string = detect_plate_string(plate_img=binary_roi)
+                
+                # plot the plate 
+                if plt_plot:                   
+                    ax[1].imshow(cv2.cvtColor(roi, cv2.COLOR_BGR2RGB))
+                    ax[1].set_title('roi')
+                    ax[2].imshow(gray_roi, cmap='gray')
+                    ax[2].set_title('gray_roi')
+                    ax[3].imshow(binary_roi, cmap='gray')
+                    ax[3].set_title('binary_roi')     
+                                                        
+                # add plots to new_img
+                cv2.rectangle(new_img, (xmin_vehicle+xmin_plate, ymin_vehicle+ymin_plate), (xmin_vehicle+xmax_plate, ymin_vehicle+ymax_plate), cv2_plates_cfg['color'], cv2_plates_cfg['thickness'])
+                cv2.putText(new_img, f"plate {score_plate:.2f}", (xmin_vehicle+xmin_plate, ymin_vehicle+ymin_plate - 5), cv2_plates_cfg['fontFace'], cv2_plates_cfg['fontScale'], cv2_plates_cfg['color'], cv2_plates_cfg['thickness'], cv2_plates_cfg['lineType']) 
+                cv2.putText(new_img, f"{plate_string}", (xmin_vehicle+xmin_plate, ymin_vehicle+ymax_plate + 30), cv2_plates_cfg['fontFace'], cv2_plates_cfg['fontScale'], cv2_plates_cfg['color'], cv2_plates_cfg['thickness'], cv2_plates_cfg['lineType'])    
+    
+    
+    tracked_vehicles = {}
     if tracker is not None and len(detections)>0:
         tracks = tracker.update(np.array(detections))
         for i in range(len(tracks)):
             detection, track = detections[i], tracks[i]
             ymin, xmax, id = int(detection[1]), int(detection[2]), int(track[4])
-            if id < 10: id = f'0{id}'
             cv2.putText(new_img, f'id: {id}', (xmax-70, ymin-5), cv2_vehicles_cfg['fontFace'], cv2_vehicles_cfg['fontScale'], cv2_vehicles_cfg['color'], cv2_vehicles_cfg['thickness'], cv2_vehicles_cfg['lineType'])
-                    
+            tracked_vehicles[f'{id}'] = [detection[0],detection[1],detection[2],detection[3]]
             
     if cv2imshow: cv2.imshow('Video', new_img)
                                                                     
@@ -192,13 +188,21 @@ def plot_one_image(model=None, img_param=None, sr_weights_path=3, tracker=None, 
             if checkEsc(waiting_time=500): break
         cv2.destroyAllWindows()
             
-    return new_img
+    return new_img, tracked_vehicles
     
 
-def real_time_object_detector(model=None, video_path=None, sr_weights_path=None, cv2_vehicles_cfg=None, cv2_plates_cfg=None, new_frame_folder=None):
+
+
+# VIDEO PROCESSING
+def real_time_object_detector(model=None, video_path=None, sr_weights_path=None, velocity_cfg=None, cv2_vehicles_cfg=None, cv2_plates_cfg=None, new_frame_folder=None):
         
     cap = cv2.VideoCapture(video_path)
     cv2.namedWindow('Video',cv2.WINDOW_KEEPRATIO)
+    
+    line1 = velocity_cfg['line1']
+    line2 = velocity_cfg['line2']
+    meters_line1line2 = velocity_cfg['meters_line1line2']
+    fps = velocity_cfg['fps']
     
     tracker = Sort()
     
@@ -210,16 +214,23 @@ def real_time_object_detector(model=None, video_path=None, sr_weights_path=None,
             return   
         n=0
 
+    old_tracker_vechiles = None
+    velocity_tracked = {}
     
     while True:
         ret, frame = cap.read()
+        if int(cap.get(cv2.CAP_PROP_POS_FRAMES))<25: continue
         
         if ret == False:
             print('Error: Unable to read video.')
             break
               
-        new_frame = plot_one_image(model=model, img_param=frame, sr_weights_path=sr_weights_path, tracker=tracker, cv2window=False, cv2imshow=True, plt_plot=False, cv2_vehicles_cfg=cv2_vehicles_cfg, cv2_plates_cfg=cv2_plates_cfg)     
-              
+        new_frame, new_tracked_vehicles = plot_one_image(model=model, img_param=frame, sr_weights_path=sr_weights_path, tracker=tracker, cv2window=False, cv2imshow=True, plt_plot=False, cv2_vehicles_cfg=cv2_vehicles_cfg, cv2_plates_cfg=cv2_plates_cfg)     
+                
+        compute_velocity(line1=line1, line2=line2, meters_line1line2=meters_line1line2, fps=fps, new_tracked_vehicles=new_tracked_vehicles, old_tracker_vechiles=old_tracker_vechiles, velocity_tracked=velocity_tracked, new_frame=new_frame, cv2_vehicles_cfg=cv2_vehicles_cfg)
+        cv2.imshow('Video', new_frame)               
+        old_tracker_vechiles = new_tracked_vehicles
+        
         if new_frame_folder is not None:   
             new_frame_name = compute_frame_name(n)
             if new_frame_name is None: 
@@ -256,8 +267,8 @@ def compute_overlap_percentage(rect1, rect2):
     area_intersection = width_intersection * height_intersection
 
     # Calculate the area of each rectangle
-    area_rect1 = (rect1[2] - rect1[0]) * (rect1[3] - rect1[1])
-    area_rect2 = (rect2[2] - rect2[0]) * (rect2[3] - rect2[1])
+    area_rect1 = np.abs(rect1[2] - rect1[0]) * np.abs(rect1[3] - rect1[1])
+    area_rect2 = np.abs(rect2[2] - rect2[0]) * np.abs(rect2[3] - rect2[1])
 
     overlap_percentage = (area_intersection / min(area_rect1, area_rect2)) * 100
 
@@ -268,10 +279,11 @@ def compute_plate_area_percentage(plate, vehicle):
     xmin_plate, ymin_plate, xmax_plate, ymax_plate = plate[0], plate[1], plate[2], plate[3]
     xmin_vehicle, ymin_vehicle, xmax_vehicle, ymax_vehicle = vehicle[0], vehicle[1], vehicle[2], vehicle[3]
     
-    width_plate = xmax_plate-xmin_plate
-    height_plate = ymax_plate-ymin_plate
-    width_vechile = xmax_vehicle-xmin_vehicle
-    height_vehicle = ymax_vehicle-ymin_vehicle
+    width_plate = np.abs(xmax_plate-xmin_plate)
+    height_plate = np.abs(ymax_plate-ymin_plate)
+    width_vechile = np.abs(xmax_vehicle-xmin_vehicle)
+    height_vehicle = np.abs(ymax_vehicle-ymin_vehicle)
+    
     plate_area = width_plate*height_plate
     vehicle_area = width_vechile*height_vehicle
     area_percentage = (plate_area/vehicle_area)*100
@@ -279,6 +291,35 @@ def compute_plate_area_percentage(plate, vehicle):
     return area_percentage
 
 
+
+def compute_velocity(line1=None, line2=None, meters_line1line2=None, fps=None, new_tracked_vehicles=None, old_tracker_vechiles=None, velocity_tracked=None, new_frame=None, cv2_vehicles_cfg=None):
+    ymin_velocity_line = line1 if line1<line2 else line2
+    ymax_velocity_line = line1 if line1>line2 else line2
+    px2m = meters_line1line2/(np.abs(line2-line1))
+
+    if old_tracker_vechiles is not None:
+        for new_id, new_box in new_tracked_vehicles.items():
+            if new_id not in velocity_tracked: velocity_tracked[f'{new_id}'] = []
+            if new_box[3]<ymax_velocity_line and new_box[3]>ymin_velocity_line:
+                for old_id, old_box in old_tracker_vechiles.items():
+                    if old_id == new_id:      
+                        # if the distance between the ymax of the same box in two consecutive frames is bigger than 30 px or smaller than 5 pixel -> skip
+                        # if the mean between ymin and ymax of new box is higher than mean of ymin and ymax of old box -> skip
+                        if (np.abs(new_box[3]-old_box[3])>30 or np.abs(new_box[3]-old_box[3])<5 or np.abs(new_box[3]-new_box[1]) > np.abs(old_box[3]-old_box[1])): continue 
+                        
+                        velocity_kmh = ((np.abs(old_box[3]-new_box[3])+np.abs(old_box[1]-new_box[1]))/2)*fps*px2m*3.6
+                        velocity_tracked[f'{new_id}'].append(velocity_kmh)
+                            
+            elif new_box[3]<ymin_velocity_line and len(velocity_tracked[f'{new_id}'])>0:
+                velocity_detected = np.mean(velocity_tracked[f'{new_id}'])
+                cv2.putText(new_frame, f'Velocity: {velocity_detected:.2f} km/h', (new_box[0], new_box[3]+30), cv2_vehicles_cfg['fontFace'], cv2_vehicles_cfg['fontScale'], cv2_vehicles_cfg['color'], cv2_vehicles_cfg['thickness'], cv2_vehicles_cfg['lineType'])
+
+    box_velocity_area = new_frame.copy()
+    cv2.rectangle(box_velocity_area, (-5, ymin_velocity_line), (new_frame.shape[1]+5, ymax_velocity_line), (255,0,0), -1)
+    cv2.addWeighted(box_velocity_area, 0.05, new_frame, 1 - 0.05, 0, new_frame)
+    
+    
+    
 def create_folder_if_not_exists(folder_path=None):
     if not os.path.exists(folder_path):
         os.makedirs(folder_path)
@@ -295,6 +336,7 @@ def create_folder_if_not_exists(folder_path=None):
             else:
                 choice = input('Do you want save the new frame into it? (it not, please change the new_path_folder parameter) [y/n] ')
        
+            
                 
 def compute_frame_name(n):
     if n<10: return f'000000000{n}'
@@ -308,6 +350,7 @@ def compute_frame_name(n):
     elif n>=100000000 and n<1000000000: return f'0{n}'
     elif n>=1000000000 and n<10000000000: return f'{n}'
     else: return None
+        
         
 
 def checkEsc(waiting_time=500):
