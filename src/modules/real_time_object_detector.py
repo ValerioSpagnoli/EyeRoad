@@ -51,7 +51,7 @@ def plot_one_image(model=None, img_param=None, sr_weights_path=3, tracker=None, 
     
     # define the area inside which will be consider the detections of vehicles
     xmin_detection_area_vehicles = 30
-    ymin_detection_area_vehicles = int(img.shape[0]/10)*4
+    ymin_detection_area_vehicles = int(img.shape[0]/100)*35
     xmax_detection_area_vehicles = int(img.shape[1])-30
     ymax_detection_area_vehicles = int(img.shape[0])-30
     
@@ -219,7 +219,7 @@ def real_time_object_detector(model=None, video_path=None, sr_weights_path=None,
     
     while True:
         ret, frame = cap.read()
-        if int(cap.get(cv2.CAP_PROP_POS_FRAMES))<25: continue
+        if int(cap.get(cv2.CAP_PROP_POS_FRAMES))<1000: continue
         
         if ret == False:
             print('Error: Unable to read video.')
@@ -316,9 +316,7 @@ def compute_velocity(line1=None, line2=None, meters_line1line2=None, fps=None, n
 
     box_velocity_area = new_frame.copy()
     cv2.rectangle(box_velocity_area, (-5, ymin_velocity_line), (new_frame.shape[1]+5, ymax_velocity_line), (255,0,0), -1)
-    cv2.addWeighted(box_velocity_area, 0.05, new_frame, 1 - 0.05, 0, new_frame)
-    
-    
+    cv2.addWeighted(box_velocity_area, 0.1, new_frame, 1 - 0.1, 0, new_frame)
     
 def create_folder_if_not_exists(folder_path=None):
     if not os.path.exists(folder_path):
