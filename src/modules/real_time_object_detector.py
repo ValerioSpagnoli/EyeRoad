@@ -7,12 +7,12 @@ import os
 from modules.sort import Sort
 
 from modules.inference import decode_prediction_vehicles, decode_prediction_plates
-from modules.detect_plate_string import detect_plate_string
+from modules.detect_plate_string import StringPlateDetector
 from utils.frames2video import frames2video
 
 
 # IMAGE PROCESSING
-def plot_one_image(model=None, img_param=None, sr_weights_path=3, tracker=None, cv2window=False, cv2imshow=False, plt_plot=False, cv2_vehicles_cfg=None, cv2_plates_cfg=None):
+def plot_one_image(model=None, img_param=None, sr_weights_path=3, string_plate_detector=None, tracker=None, cv2window=False, cv2imshow=False, plt_plot=False, cv2_vehicles_cfg=None, cv2_plates_cfg=None):
             
     detections=[]        
             
@@ -103,7 +103,7 @@ def plot_one_image(model=None, img_param=None, sr_weights_path=3, tracker=None, 
             predictions_plates = model(vehicle_image)[0]
                 
             # decode predictions of plates
-            box_plate, _, score_plate = decode_prediction_plates(prediction=predictions_plates)
+            box_plate, _, score_plate = decode_prediction_plates(prediction=predictions_plates, score_threshold=0.5)
             
             # if there are detections of plates
             if box_plate is not None:
@@ -124,6 +124,7 @@ def plot_one_image(model=None, img_param=None, sr_weights_path=3, tracker=None, 
                 
                 # crop the region of interest (roi), i.e. the plate
                 roi = img[ymin_vehicle+ymin_plate:ymin_vehicle+ymax_plate, xmin_vehicle+xmin_plate:xmin_vehicle+xmax_plate]
+                roi_to_save = roi;
                 
                 # if the super resolution weights are passed ar parameter, perform the super resolution.
                 if sr_weights_path is not None:
@@ -155,7 +156,9 @@ def plot_one_image(model=None, img_param=None, sr_weights_path=3, tracker=None, 
                 _, binary_roi = cv2.threshold(gray_roi, threshold, 255, cv2.THRESH_BINARY)
                 
                 # compute the plate string
-                plate_string = detect_plate_string(plate_img=binary_roi)
+                plate_string, probability = string_plate_detector.detect_plate_string(plate_img=binary_roi, weights_dir='../weights/anpr_weights/')
+                
+                cv2.imwrite('./../plates/' + f'{plate_string}.jpeg', roi_to_save)
                 
                 # plot the plate 
                 if plt_plot:                   
@@ -170,6 +173,7 @@ def plot_one_image(model=None, img_param=None, sr_weights_path=3, tracker=None, 
                 cv2.rectangle(new_img, (xmin_vehicle+xmin_plate, ymin_vehicle+ymin_plate), (xmin_vehicle+xmax_plate, ymin_vehicle+ymax_plate), cv2_plates_cfg['color'], cv2_plates_cfg['thickness'])
                 cv2.putText(new_img, f"plate {score_plate:.2f}", (xmin_vehicle+xmin_plate, ymin_vehicle+ymin_plate - 5), cv2_plates_cfg['fontFace'], cv2_plates_cfg['fontScale'], cv2_plates_cfg['color'], cv2_plates_cfg['thickness'], cv2_plates_cfg['lineType']) 
                 cv2.putText(new_img, f"{plate_string}", (xmin_vehicle+xmin_plate, ymin_vehicle+ymax_plate + 30), cv2_plates_cfg['fontFace'], cv2_plates_cfg['fontScale'], cv2_plates_cfg['color'], cv2_plates_cfg['thickness'], cv2_plates_cfg['lineType'])    
+                cv2.putText(new_img, f"{probability:.2f}", (xmin_vehicle+xmin_plate, ymin_vehicle+ymax_plate + 60), cv2_plates_cfg['fontFace'], cv2_plates_cfg['fontScale'], cv2_plates_cfg['color'], cv2_plates_cfg['thickness'], cv2_plates_cfg['lineType'])    
     
     
     tracked_vehicles = {}
@@ -195,6 +199,8 @@ def plot_one_image(model=None, img_param=None, sr_weights_path=3, tracker=None, 
 
 # VIDEO PROCESSING
 def real_time_object_detector(model=None, video_path=None, sr_weights_path=None, velocity_cfg=None, cv2_vehicles_cfg=None, cv2_plates_cfg=None, new_frame_folder=None, frames_to_skip=-1):
+        
+    spd = StringPlateDetector()
         
     cap = cv2.VideoCapture(video_path)
     cv2.namedWindow('Video',cv2.WINDOW_KEEPRATIO)
@@ -225,7 +231,7 @@ def real_time_object_detector(model=None, video_path=None, sr_weights_path=None,
             print('Error: Unable to read video.')
             break
               
-        new_frame, new_tracked_vehicles = plot_one_image(model=model, img_param=frame, sr_weights_path=sr_weights_path, tracker=tracker, cv2window=False, cv2imshow=True, plt_plot=False, cv2_vehicles_cfg=cv2_vehicles_cfg, cv2_plates_cfg=cv2_plates_cfg)     
+        new_frame, new_tracked_vehicles = plot_one_image(model=model, img_param=frame, sr_weights_path=sr_weights_path, string_plate_detector=spd, tracker=tracker, cv2window=False, cv2imshow=True, plt_plot=False, cv2_vehicles_cfg=cv2_vehicles_cfg, cv2_plates_cfg=cv2_plates_cfg)     
                 
         compute_velocity(line1=line1, line2=line2, meters_line1line2=meters_line1line2, fps=fps, new_tracked_vehicles=new_tracked_vehicles, old_tracker_vechiles=old_tracker_vechiles, velocity_tracked=velocity_tracked, new_frame=new_frame, cv2_vehicles_cfg=cv2_vehicles_cfg)
         cv2.imshow('Video', new_frame)               

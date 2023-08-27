@@ -1,0 +1,2 @@
+pytorch==1.6.0
+dataset==2.8.0

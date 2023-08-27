@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 
@@ -14,10 +15,10 @@ from torch.utils.data import Dataset, DataLoader
 size=(600,600)
 
 # XML to CSV function to create dataset.csv file
-def xml2csv(main_dir=None, path_folder=None):
+def xml2csv_close_up(path_folder=None):
     
-    path_xml_plates = sorted(glob(main_dir+path_folder+"plates/*.xml"))
-    path_xml_vehicles = sorted(glob(main_dir+path_folder+"vehicles/*.xml"))
+    path_xml_plates = sorted(glob(path_folder+"plates/*.xml"))
+    path_xml_vehicles = sorted(glob(path_folder+"vehicles/*.xml"))
     
     labels_dict = dict(filepath=[],xmin=[],ymin=[],xmax=[],ymax=[],label=[])
     
@@ -46,8 +47,46 @@ def xml2csv(main_dir=None, path_folder=None):
         
 
     df = pd.DataFrame(labels_dict)
-    df.to_csv(main_dir+path_folder+'dataset.csv', index=False)
+    df.to_csv(path_folder+'dataset.csv', index=False)
     return df
+
+
+# XML to CSV function to create dataset.csv file
+def xml2csv_traffic_camera(path_folder=None):
+    
+    path_xml = sorted(glob(path_folder+"*.xml"))
+    labels_dict = dict(filepath=[],xmin=[],ymin=[],xmax=[],ymax=[],label=[])
+    
+    for filename in path_xml:
+        info = xet.parse(filename)
+        root = info.getroot()
+        
+        for i, member_object in enumerate(root.findall('object')):  
+            if i%2 == 0:    
+                name = member_object.find('name').text
+                if name == 'vehicle':
+                    labels_info = member_object.find('bndbox')
+                    xmin = int(float(labels_info.find('xmin').text))
+                    ymin = int(float(labels_info.find('ymin').text))
+                    xmax = int(float(labels_info.find('xmax').text))
+                    ymax = int(float(labels_info.find('ymax').text))
+                    
+                    if np.abs(xmax-xmin)*np.abs(ymax-ymin) < 1000: continue
+                    
+                    splitted_filename = filename.split('/')
+                    filename_rel = splitted_filename[-1].split('.')[0] + '.jpeg'
+                    labels_dict['filepath'].append(filename_rel)
+                    labels_dict['xmin'].append(xmin)
+                    labels_dict['ymin'].append(ymin)
+                    labels_dict['xmax'].append(xmax)
+                    labels_dict['ymax'].append(ymax)
+                    
+                    labels_dict['label'].append('1')
+        
+    df = pd.DataFrame(labels_dict)
+    df.to_csv(path_folder+'dataset.csv', index=False)
+    return df
+
 
 
 # Return the transfomation will be applied on datasets
@@ -77,8 +116,7 @@ class PlateDetectorDataset(Dataset):
         return len(self.data)
         
     def __getitem__(self, idx):
-        img_path = self.data_dir+self.data.iloc[idx, 0][2:]
-
+        img_path = self.data_dir+self.data.iloc[idx, 0]
         image = Image.open(img_path).convert("RGB")
                 
         xmin, ymin, xmax, ymax, label = self.data.iloc[idx, 1:].values
