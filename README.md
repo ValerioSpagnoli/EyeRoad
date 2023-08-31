@@ -67,7 +67,7 @@ This project use three networks:
 - EDSR for super resolution
 - ALPRNet for string plate recognition
   
-From the this [link](https://drive.google.com/drive/folders/1GNwxJwKyAZybAP71T0N0wo2yH6GAgzkP?usp=share_link) you can download three folders with all weights needed. Please create a folder named ```weights``` in the main directory of this repository and put all three folders downloaded into it. The directory tree must be:
+From this [link](https://drive.google.com/drive/folders/1GNwxJwKyAZybAP71T0N0wo2yH6GAgzkP?usp=share_link) you can download three folders with all weights needed. Please create a folder named ```weights``` in the main directory of this repository and put all three folders downloaded into it. The directory tree must be:
 
 ```sh
   -- VehiclesAndPlates-Detector
