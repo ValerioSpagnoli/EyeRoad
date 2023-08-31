@@ -1,0 +1,3 @@
+[submodule "src/ALPRNet"]
+	path = src/ALPRNet
+	url = https://github.com/luigi-ga/ALPRNet.git
