@@ -3,6 +3,8 @@ import os
 
 def frames2video(images_folder=None, output_video_path=None, original_video_path=None, fps=25):
     
+    print('Creating new video ...')
+    
     if original_video_path is not None:
         cap = cv2.VideoCapture(original_video_path)
         fps = cap.get(cv2.CAP_PROP_FPS)

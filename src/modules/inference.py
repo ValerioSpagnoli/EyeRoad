@@ -1,4 +1,5 @@
 import torch
+import torchvision
 import numpy as np
  
 from modules.model import get_plateDetectorModel
@@ -22,19 +23,30 @@ def decode_prediction_vehicles(prediction=None, score_threshold=0.3):
         return (None, None, None)
     
     want_st = scores > score_threshold
-    boxes_t = boxes[want_st].cpu().detach().numpy()
-    labels_t = labels[want_st].cpu().detach().numpy()
-    scores_t = scores[want_st].cpu().detach().numpy()
-                
+    boxes_t = boxes[want_st]
+    labels_t = labels[want_st]
+    scores_t = scores[want_st]
+    
     if(len(boxes_t)==0):
         boxes = [boxes.cpu().detach().numpy()[0]]
         labels = [labels.cpu().detach().numpy()[0]]
         scores = [scores.cpu().detach().numpy()[0]]
-    else:
-        boxes = boxes_t
-        labels = labels_t
-        scores = scores_t
+    else:           
+        want_nms = torchvision.ops.nms(boxes=boxes_t, scores=scores_t, iou_threshold=0.2)
         
+        boxes_nms = boxes[want_nms].cpu().detach().numpy()
+        labels_nms = labels[want_nms].cpu().detach().numpy()
+        scores_nms = scores[want_nms].cpu().detach().numpy()
+        
+        if(len(boxes_nms)==0):
+            boxes = [boxes.cpu().detach().numpy()[0]]
+            labels = [labels.cpu().detach().numpy()[0]]
+            scores = [scores.cpu().detach().numpy()[0]]
+        else:
+            boxes = boxes_nms
+            labels = labels_nms
+            scores = scores_nms
+          
     i=0
     while i < len(labels):
         label = labels[i]
@@ -43,7 +55,7 @@ def decode_prediction_vehicles(prediction=None, score_threshold=0.3):
             labels = np.delete(labels, i, axis=0)
             scores = np.delete(scores, i, axis=0)
         else: i+=1
-    
+        
     return (boxes, labels, scores)
 
 
