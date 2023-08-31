@@ -1,6 +1,7 @@
 data/
 weights/
 output_video/
+video_test/
 **/.DS_Store
 
 

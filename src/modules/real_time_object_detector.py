@@ -2,7 +2,6 @@ import torch
 import torchvision.transforms as transforms
 import cv2
 import numpy as np
-import matplotlib.pyplot as plt
 import os
 from difflib import SequenceMatcher
 
