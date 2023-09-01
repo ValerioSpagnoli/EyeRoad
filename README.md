@@ -15,7 +15,7 @@ The project implements the following features:
 - object detector of vehicles and plates based on [FasterRCNN_ResNet50](https://pytorch.org/vision/main/models/generated/torchvision.models.detection.fasterrcnn_resnet50_fpn.html) of PyTorch:
   - By Shaoqing Ren, Kaiming He, Ross Girshick, Jian Sun, "Faster R-CNN: Towards Real-Time Object Detection with Region Proposal Networks". [[PDF](https://arxiv.org/pdf/1506.01497.pdf)]
 - string plate recognition based on ALPRNet (imported as sub-module from https://github.com/luigi-ga/ALPRNet.git)
-- tracking of vehicles based on string plate recognition
+- tracking and counting of vehicles based on string plate recognition
 - velocity estimation based on domain knowledge
 
 The following **pseudocode** shows the inference stage of this project with reference to ```real_time_object_detector.py``` file. 
