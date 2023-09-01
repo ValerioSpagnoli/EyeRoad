@@ -36,7 +36,7 @@ From this [link](https://drive.google.com/file/d/1z-f7ND6Y4OfmDalFB_t9bMxFPyOE21
 ## Installation 
 1. Clone this repository:
 ```sh
-git clone https://github.com/ValerioSpagnoli/VehiclesAndPlates-Detector.git
+git clone --recurse-submodules https://github.com/ValerioSpagnoli/VehiclesAndPlates-Detector.git
 cd VehiclesAndPlates-Detector
 ```
 2. Install the required dependencies using `pip`:
