@@ -11,14 +11,10 @@ from utils.frames2video import frames2video
 
 
 # IMAGE PROCESSING
-def plot_one_image(model=None, image=None, sr_weights_path=None, string_plate_detector=None, ids=None, cv2_vehicles_cfg=None, cv2_plates_cfg=None):
+def plot_one_image(model=None, image=None, sr_weights_path=None, string_plate_detector=None, ids=None, counter=None, cv2_vehicles_cfg=None, cv2_plates_cfg=None):
             
     detections={}        
-            
-    # if configurations of plot are not passed as paramenters, set them
-    if cv2_vehicles_cfg is None: cv2_vehicles_cfg = {'fontFace':cv2.FONT_HERSHEY_SIMPLEX, 'fontScale':0.5, 'color':(0,0,255), 'thickness':2, 'lineType':cv2.LINE_AA}
-    if cv2_plates_cfg is None: cv2_plates_cfg = {'fontFace':cv2.FONT_HERSHEY_SIMPLEX, 'fontScale':0.5, 'color':(255,0,0), 'thickness':2, 'lineType':cv2.LINE_AA}
-        
+                        
     # check if the image passed as parameter is an cv2 image, or a string (i.e. the path of the image)    
     if(isinstance(image, np.ndarray)): img = image
     else: print('Error: unable to read image.')
@@ -42,6 +38,7 @@ def plot_one_image(model=None, image=None, sr_weights_path=None, string_plate_de
     ymin_detection_area_vehicles = int(img.shape[0]/100)*35
     xmax_detection_area_vehicles = int(img.shape[1])-30
     ymax_detection_area_vehicles = int(img.shape[0])-30
+    cv2.rectangle(new_img, (xmin_detection_area_vehicles, ymin_detection_area_vehicles), (xmax_detection_area_vehicles, ymax_detection_area_vehicles), (0,150,150), 2)
               
     # if there are detections of vehicles
     if boxes_vehicles is not None: 
@@ -56,7 +53,11 @@ def plot_one_image(model=None, image=None, sr_weights_path=None, string_plate_de
             
             # if the detection is outside of detection_area_vehicles, ignore them
             if(ymin_vehicle < ymin_detection_area_vehicles): continue
-                                                                       
+            
+            cv2.rectangle(new_img, (xmin_vehicle, ymin_vehicle), (xmax_vehicle, ymax_vehicle), cv2_vehicles_cfg['color'], cv2_vehicles_cfg['thickness'])
+            cv2.rectangle(new_img, (xmin_vehicle, ymin_vehicle), (xmax_vehicle, ymin_vehicle+25), cv2_vehicles_cfg['color'], -1)
+            cv2.putText(new_img, f"vehicle: {score_vehicle:.2f}", (xmin_vehicle+5, ymin_vehicle+20), cv2_vehicles_cfg['fontFace'], cv2_vehicles_cfg['fontScale'], (255,255,255), cv2_vehicles_cfg['thickness'], cv2_vehicles_cfg['lineType'])
+                                          
             # crop the image of detected vehicle
             vehicle_image = tensor_img.squeeze(dim=0)[:, ymin_vehicle:ymax_vehicle, xmin_vehicle:xmax_vehicle].unsqueeze(dim=0)  
                 
@@ -75,7 +76,9 @@ def plot_one_image(model=None, image=None, sr_weights_path=None, string_plate_de
                 
                 # compute plate area and discard all detections under 1500 px^2 and over 10000 px^2 of area
                 plate_area = np.abs(xmax_plate-xmin_plate)*np.abs(ymax_plate-ymin_plate)
-                if plate_area < 1500 or plate_area > 10000: continue
+                if (ymin_vehicle+ymax_plate > ymax_detection_area_vehicles) or (plate_area < 1500 or plate_area > 10000): continue
+                
+                cv2.rectangle(new_img, (xmin_vehicle+xmin_plate, ymin_vehicle+ymin_plate), (xmin_vehicle+xmax_plate, ymin_vehicle+ymax_plate), cv2_plates_cfg['color'], cv2_plates_cfg['thickness'])
 
                 # crop the region of interest (roi), i.e. the plate
                 roi = img[ymin_vehicle+ymin_plate:ymin_vehicle+ymax_plate, xmin_vehicle+xmin_plate:xmin_vehicle+xmax_plate]
@@ -93,14 +96,6 @@ def plot_one_image(model=None, image=None, sr_weights_path=None, string_plate_de
                 # compute the plate string
                 plate_string = string_plate_detector.detect_plate_string(image=gray_roi)
                                                                 
-                # add plots to new_img
-                cv2.rectangle(new_img, (xmin_detection_area_vehicles, ymin_detection_area_vehicles), (xmax_detection_area_vehicles, ymax_detection_area_vehicles), (0,150,150), 2)
-                cv2.rectangle(new_img, (xmin_vehicle+xmin_plate, ymin_vehicle+ymin_plate), (xmin_vehicle+xmax_plate, ymin_vehicle+ymax_plate), cv2_plates_cfg['color'], cv2_plates_cfg['thickness'])
-                cv2.rectangle(new_img, (xmin_vehicle, ymin_vehicle), (xmax_vehicle, ymax_vehicle), cv2_vehicles_cfg['color'], cv2_vehicles_cfg['thickness'])
-                
-                cv2.rectangle(new_img, (xmin_vehicle, ymin_vehicle), (xmax_vehicle, ymin_vehicle+25), cv2_vehicles_cfg['color'], -1)
-                cv2.putText(new_img, f"vehicle: {score_vehicle:.2f}", (xmin_vehicle+5, ymin_vehicle+20), cv2_vehicles_cfg['fontFace'], cv2_vehicles_cfg['fontScale'], (255,255,255), cv2_vehicles_cfg['thickness'], cv2_vehicles_cfg['lineType'])
-                
                 plate_background = new_img.copy()
                 cv2.rectangle(plate_background, (xmin_vehicle+xmin_plate-2, ymin_vehicle+ymin_plate-25), (xmin_vehicle+xmax_plate+2, ymin_vehicle+ymin_plate), cv2_plates_cfg['color'], -1)
                 cv2.rectangle(plate_background, (xmin_vehicle+xmin_plate-2, ymin_vehicle+ymax_plate), (xmin_vehicle+xmax_plate+2, ymin_vehicle+ymax_plate+25), cv2_plates_cfg['color'], -1)
@@ -108,15 +103,18 @@ def plot_one_image(model=None, image=None, sr_weights_path=None, string_plate_de
                 cv2.putText(new_img, f"plate {score_plate:.2f}", (xmin_vehicle+xmin_plate+5, ymin_vehicle+ymin_plate - 5), cv2_plates_cfg['fontFace'], cv2_plates_cfg['fontScale'], (255,255,255), cv2_plates_cfg['thickness'], cv2_plates_cfg['lineType']) 
                 cv2.putText(new_img, f"{plate_string}", (xmin_vehicle+xmin_plate+5, ymin_vehicle+ymax_plate + 20), cv2_plates_cfg['fontFace'], cv2_plates_cfg['fontScale'], (255,255,255), cv2_plates_cfg['thickness'], cv2_plates_cfg['lineType'])        
                 
-                compute_id(ids=ids, detections=detections, plate_string=plate_string, box_vehicle=[xmin_vehicle, ymin_vehicle, xmax_vehicle, ymax_vehicle], frame=new_img, cv2_vehicle_cfg=cv2_vehicles_cfg)
+                counter = compute_id(ids=ids, detections=detections, plate_string=plate_string, box_vehicle=[xmin_vehicle, ymin_vehicle, xmax_vehicle, ymax_vehicle], counter=counter, frame=new_img, cv2_vehicle_cfg=cv2_vehicles_cfg)
                                                                                                                     
-    return new_img, detections
+    return new_img, detections, counter
     
 
 
 
 # VIDEO PROCESSING
-def real_time_object_detector(model=None, video_path=None, sr_weights_path=None, spl_weights_path=None, velocity_cfg=None, cv2_vehicles_cfg=None, cv2_plates_cfg=None, new_frame_folder=None, frames_to_skip=-1):
+def real_time_object_detector(model=None, video_path=None, sr_weights_path=None, spl_weights_path=None, velocity_cfg=None, new_frame_folder=None, frames_to_skip=-1):
+        
+    cv2_vehicles_cfg = {'fontFace':cv2.FONT_HERSHEY_SIMPLEX, 'fontScale':0.65, 'color':(0,0,255), 'thickness':2, 'lineType':cv2.LINE_AA}
+    cv2_plates_cfg = {'fontFace':cv2.FONT_HERSHEY_SIMPLEX, 'fontScale':0.6, 'color':(255,0,0), 'thickness':2, 'lineType':cv2.LINE_AA}    
         
     # define open cv window
     cap = cv2.VideoCapture(video_path)
@@ -139,6 +137,7 @@ def real_time_object_detector(model=None, video_path=None, sr_weights_path=None,
     ids = {} # key=plate_sting, value=id
     n_nontracked_frames = {}
     velocity_tracked = {}
+    counter = 0
     
     while True:
         ret, frame = cap.read()
@@ -148,9 +147,11 @@ def real_time_object_detector(model=None, video_path=None, sr_weights_path=None,
             print('Error: Unable to read video.')
             break
               
-        new_frame, new_tracked_vehicles = plot_one_image(model=model, image=frame, sr_weights_path=sr_weights_path, string_plate_detector=spd, 
-                                                         ids=ids, cv2_vehicles_cfg=cv2_vehicles_cfg, cv2_plates_cfg=cv2_plates_cfg)    
+        new_frame, new_tracked_vehicles, counter = plot_one_image(model=model, image=frame, sr_weights_path=sr_weights_path, string_plate_detector=spd, 
+                                                         ids=ids, counter=counter, cv2_vehicles_cfg=cv2_vehicles_cfg, cv2_plates_cfg=cv2_plates_cfg)    
         
+        cv2.rectangle(new_frame, (new_frame.shape[1]-220, 0), (new_frame.shape[1], 50), (0,0,0), -1)
+        cv2.putText(new_frame, f"counter: {counter}", (new_frame.shape[1]-210, 32), cv2_vehicles_cfg['fontFace'], 0.8, (255,255,255), cv2_vehicles_cfg['thickness'], cv2_vehicles_cfg['lineType'])
         
         i = 0
         keys = list(ids.keys())
@@ -172,10 +173,12 @@ def real_time_object_detector(model=None, video_path=None, sr_weights_path=None,
                     n_nontracked_frames[value] = 0
             i=i+1
                  
-                
-        compute_velocity(line1=velocity_cfg['line1'], line2=velocity_cfg['line2'], meters_line1line2=velocity_cfg['meters_line1line2'], 
-                         fps=velocity_cfg['fps'], new_tracked_vehicles=new_tracked_vehicles, old_tracked_vechiles=old_tracked_vehicles, 
-                         velocity_tracked=velocity_tracked, new_frame=new_frame, cv2_vehicles_cfg=cv2_vehicles_cfg)
+        if velocity_cfg is not None:
+            compute_velocity(line1=velocity_cfg['line1'], line2=velocity_cfg['line2'], meters_line1line2=velocity_cfg['meters_line1line2'], 
+                            fps=velocity_cfg['fps'], new_tracked_vehicles=new_tracked_vehicles, old_tracked_vechiles=old_tracked_vehicles, 
+                            velocity_tracked=velocity_tracked, new_frame=new_frame, cv2_vehicles_cfg=cv2_vehicles_cfg)
+            
+
         
         old_tracked_vehicles = new_tracked_vehicles
 
@@ -203,7 +206,7 @@ def real_time_object_detector(model=None, video_path=None, sr_weights_path=None,
 ############################################################################
 # Internal use
 
-def compute_id(ids, detections, plate_string, box_vehicle, frame, cv2_vehicle_cfg):
+def compute_id(ids=None, detections=None, plate_string=None, box_vehicle=None, counter=None, frame=None, cv2_vehicle_cfg=None):
     
     xmin_vehicle = box_vehicle[0]
     ymin_vehicle = box_vehicle[1]
@@ -228,11 +231,12 @@ def compute_id(ids, detections, plate_string, box_vehicle, frame, cv2_vehicle_cf
                 else:
                     new_id_found = True
             ids[plate_string] = frist_id_free
-            
+            counter = counter+1
+    
     cv2.putText(frame, f"id: {ids[plate_string]}", (xmin_vehicle+170, ymin_vehicle + 20), cv2_vehicle_cfg['fontFace'], cv2_vehicle_cfg['fontScale'], (255,255,255), cv2_vehicle_cfg['thickness'], cv2_vehicle_cfg['lineType'])        
     detections[ids[plate_string]] = [xmin_vehicle, ymin_vehicle, xmax_vehicle, ymax_vehicle]
-    return detections
-
+    
+    return counter
 
 
 def compute_velocity(line1=None, line2=None, meters_line1line2=None, fps=None, new_tracked_vehicles=None, old_tracked_vechiles=None, velocity_tracked=None, new_frame=None, cv2_vehicles_cfg=None):
