@@ -6,9 +6,9 @@ The string plate recognition part of this project has been developed and uploade
 
 
 ## Visuals
-![Alt Text](media/gif_demo.gif)
+![Alt Text](media/video_demo.gif)
 
-From this [link](https://drive.google.com/file/d/1v7uv77cQN6S_KKDVT3E_Iar1ZfLP1i6U/view?usp=share_link) you can download the full demo video.
+From this [link](https://drive.google.com/file/d/14FUnilJ6lGWAUMs6i-etV0Tw7AkkKlH2/view?usp=share_link) you can download the full demo video.
 
 ## Description
 The project implements the following features:
