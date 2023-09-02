@@ -4,6 +4,7 @@ output_video/
 video_test/
 media/temp
 media/video_demo.mp4
+media/video2fgif.py
 **/.DS_Store
 
 
