@@ -1,4 +1,4 @@
-# Vehicles and plates detector and tracking with string plate recognition
+# EyeRoad: Vehicles and plates detector and tracking with string plate recognition
 
 This repository contain the project for Vision and Perception exam of Master in Artificial in Intelligence and Robotics from **University La Sapienza of Rome**.
 
@@ -6,7 +6,7 @@ The string plate recognition part of this project has been developed and uploade
 
 
 ## Visuals
-![Alt Text](media/video_demo.gif)
+![Alt Text](media/demo.gif)
 
 From this [link](https://drive.google.com/file/d/14FUnilJ6lGWAUMs6i-etV0Tw7AkkKlH2/view?usp=share_link) you can download the full demo video.
 
