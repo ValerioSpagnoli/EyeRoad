@@ -9,6 +9,7 @@ from modules.inference import decode_prediction_vehicles, decode_prediction_plat
 from modules.detect_plate_string import StringPlateDetector
 from utils.frames2video import frames2video
 
+import matplotlib.pyplot as plt
 
 # IMAGE PROCESSING
 def plot_one_image(model=None, image=None, sr_weights_path=None, string_plate_detector=None, ids=None, counter=None, cv2_vehicles_cfg=None, cv2_plates_cfg=None):
@@ -32,10 +33,10 @@ def plot_one_image(model=None, image=None, sr_weights_path=None, string_plate_de
     
     # the variable new_img will be the image on which will be done the cv2 plots
     new_img = img.copy()
-    
+            
     # define the area inside which will be consider the detections of vehicles
     xmin_detection_area_vehicles = 30
-    ymin_detection_area_vehicles = int(img.shape[0]/100)*35
+    ymin_detection_area_vehicles = int(img.shape[0]/100)*25
     xmax_detection_area_vehicles = int(img.shape[1])-30
     ymax_detection_area_vehicles = int(img.shape[0])-30
     cv2.rectangle(new_img, (xmin_detection_area_vehicles, ymin_detection_area_vehicles), (xmax_detection_area_vehicles, ymax_detection_area_vehicles), (0,150,150), 2)
@@ -79,20 +80,20 @@ def plot_one_image(model=None, image=None, sr_weights_path=None, string_plate_de
                 if (ymin_vehicle+ymax_plate > ymax_detection_area_vehicles) or (plate_area < 1500 or plate_area > 10000): continue
                 
                 cv2.rectangle(new_img, (xmin_vehicle+xmin_plate, ymin_vehicle+ymin_plate), (xmin_vehicle+xmax_plate, ymin_vehicle+ymax_plate), cv2_plates_cfg['color'], cv2_plates_cfg['thickness'])
-
+                
                 # crop the region of interest (roi), i.e. the plate
                 roi = img[ymin_vehicle+ymin_plate:ymin_vehicle+ymax_plate, xmin_vehicle+xmin_plate:xmin_vehicle+xmax_plate]
-                
+                                
                 # if the super resolution weights are passed ar parameter, perform the super resolution.
                 if sr_weights_path is not None:
                     sr = cv2.dnn_superres.DnnSuperResImpl_create()
                     sr.readModel(sr_weights_path)
                     sr.setModel("edsr",int(sr_weights_path.split('x')[1].split('.')[0]))
                     sr_roi = sr.upsample(roi)
-
+                    
                 # compute the gray image of the super resoluted roi
                 gray_roi = cv2.cvtColor(sr_roi, cv2.COLOR_BGR2GRAY)
-
+                
                 # compute the plate string
                 plate_string = string_plate_detector.detect_plate_string(image=gray_roi)
                                                                 
@@ -111,7 +112,7 @@ def plot_one_image(model=None, image=None, sr_weights_path=None, string_plate_de
 
 
 # VIDEO PROCESSING
-def real_time_object_detector(model=None, video_path=None, sr_weights_path=None, spl_weights_path=None, velocity_cfg=None, new_frame_folder=None, frames_to_skip=-1):
+def real_time_object_detector(model=None, video_path=None, sr_weights_path=None, spl_weights_path=None, velocity_cfg=None, new_frame_folder=None, start_frame=-1, end_frame=-1):
         
     cv2_vehicles_cfg = {'fontFace':cv2.FONT_HERSHEY_SIMPLEX, 'fontScale':0.65, 'color':(0,0,255), 'thickness':2, 'lineType':cv2.LINE_AA}
     cv2_plates_cfg = {'fontFace':cv2.FONT_HERSHEY_SIMPLEX, 'fontScale':0.6, 'color':(255,0,0), 'thickness':2, 'lineType':cv2.LINE_AA}    
@@ -141,7 +142,8 @@ def real_time_object_detector(model=None, video_path=None, sr_weights_path=None,
     
     while True:
         ret, frame = cap.read()
-        if int(cap.get(cv2.CAP_PROP_POS_FRAMES))<frames_to_skip: continue
+        if (int(cap.get(cv2.CAP_PROP_POS_FRAMES))<start_frame and start_frame!=-1): continue
+        if (int(cap.get(cv2.CAP_PROP_POS_FRAMES))>end_frame and end_frame!=-1): break 
         
         if ret == False:
             print('Error: Unable to read video.')
@@ -150,8 +152,9 @@ def real_time_object_detector(model=None, video_path=None, sr_weights_path=None,
         new_frame, new_tracked_vehicles, counter = plot_one_image(model=model, image=frame, sr_weights_path=sr_weights_path, string_plate_detector=spd, 
                                                          ids=ids, counter=counter, cv2_vehicles_cfg=cv2_vehicles_cfg, cv2_plates_cfg=cv2_plates_cfg)    
         
-        cv2.rectangle(new_frame, (new_frame.shape[1]-220, 0), (new_frame.shape[1], 50), (0,0,0), -1)
-        cv2.putText(new_frame, f"counter: {counter}", (new_frame.shape[1]-210, 32), cv2_vehicles_cfg['fontFace'], 0.8, (255,255,255), cv2_vehicles_cfg['thickness'], cv2_vehicles_cfg['lineType'])
+        # Plot the counter on the image
+        # cv2.rectangle(new_frame, (new_frame.shape[1]-220, 0), (new_frame.shape[1], 50), (0,0,0), -1)
+        # cv2.putText(new_frame, f"counter: {counter}", (new_frame.shape[1]-210, 32), cv2_vehicles_cfg['fontFace'], 0.8, (255,255,255), cv2_vehicles_cfg['thickness'], cv2_vehicles_cfg['lineType'])
         
         i = 0
         keys = list(ids.keys())
