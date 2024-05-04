@@ -9,4 +9,5 @@ real_time_object_detector.real_time_object_detector(model=detector,
                                                     spl_weights_path='weights/alpr_weights/ALPR_weights.pth.zip',
                                                     velocity_cfg=velocity_cfg,
                                                     new_frame_folder='output_video/',
-                                                    frames_to_skip=0)
+                                                    start_frame=0,
+                                                    end_frame=-1)
