@@ -26,3 +26,10 @@ def frames2video(images_folder=None, output_video_path=None, original_video_path
 
     video_writer.release()
     print("Video created successfully!")
+
+
+def main():
+    frames2video(images_folder='output_video/', output_video_path='output_video/', original_video_path='video_test/video_test.mp4', fps=25)
+
+if __name__ == '__main__':
+    main()
